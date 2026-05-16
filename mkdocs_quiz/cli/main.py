@@ -355,6 +355,107 @@ def history(clear: bool, output_format: str | None) -> None:
 def export() -> None:
     """Export quizzes to various formats."""
     pass
+    
+
+@export.command("gift")
+@click.argument("path", default="docs", type=click.Path(exists=True))
+@click.option(
+    "-o",
+    "--output",
+    help="Output file path (default: quizzes.gift).",
+)
+@click.option(
+    "-t",
+    "--title",
+    help="Title for the quiz package.",
+)
+@click.option(
+    "--no-recursive",
+    is_flag=True,
+    help="Don't search directories recursively.",
+)
+def export_gift(
+    path: str,
+    output: str | None,
+    title: str | None,
+    no_recursive: bool,
+) -> None:
+    """Export quizzes to GIFT format for LMS import (Moodle)."""
+    from ..qti import (
+        extract_quizzes_from_directory,
+        extract_quizzes_from_file,
+    )
+    from ..qti.models import QuizCollection
+
+    # Convert path to Path object
+    source_path = Path(path)
+
+    console.print(f"[bold]MkDocs Quiz GIFT Export[/bold]")
+    console.print(f"Source: {source_path}")
+    console.print()
+
+    # Extract quizzes
+    if source_path.is_file():
+        if source_path.suffix.lower() != ".md":
+            console.print(f"[red]Error: File must be a markdown file (.md): {source_path}[/red]")
+            sys.exit(1)
+
+        quizzes = extract_quizzes_from_file(source_path)
+        collection = QuizCollection(
+            title=title or source_path.stem,
+            quizzes=quizzes,
+            description=f"Exported from {source_path.name}",
+        )
+    else:
+        collection = extract_quizzes_from_directory(
+            source_path,
+            recursive=not no_recursive,
+        )
+        if title:
+            collection.title = title
+
+    # Check if we found any quizzes
+    if not collection.quizzes:
+        console.print("No quizzes found in the specified path")
+        sys.exit(0)
+
+    # Validate quizzes
+    errors = collection.validate()
+    if errors:
+        console.print("[yellow]Warning: Some quizzes have validation errors:[/yellow]")
+        for quiz_id, quiz_errors in errors.items():
+            for error in quiz_errors:
+                console.print(f"  - {quiz_id}: {error}")
+        console.print()
+
+    # Determine output path
+    if output is None:
+        output = "quizzes.gift"
+    output_path = Path(output)
+
+    # Export
+    console.print(f"Found {collection.total_questions} quiz question(s):")
+    console.print(f"  - Single choice: {collection.single_choice_count}")
+    console.print(f"  - Multiple choice: {collection.multiple_choice_count}")
+    console.print(f"  - Fill-in-blank: {collection.fill_in_blank_count}")
+    console.print()
+
+    # Generate GIFT content
+    from .gift_exporter import GIFT_Exporter
+    exporter = GIFT_Exporter(collection)
+    gift_string = exporter.generate_items()
+
+    # Write to file
+    try:
+        output_path.write_text(gift_string, encoding="utf-8")
+        console.print(f"[green]Exported to: {output_path}[/green]")
+    except OSError as e:
+        console.print(f"[red]Error writing to {output_path}: {e}[/red]")
+        sys.exit(1)
+
+    console.print()
+    console.print("Import this .gift file into Moodle")
+    
 
 
 @export.command("qti")
