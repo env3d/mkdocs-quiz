@@ -24,14 +24,22 @@ class GIFT_Exporter:
         else:
             # 2. Otherwise, dynamically detect and read the project config file
             self.site_url = self._load_config_and_extract_url()
-
+        print(f"Using site_url: {self.site_url}") 
+        
     def _load_config_and_extract_url(self) -> str:
         """Searches for mkdocs.yml or properdocs.yml.
 
         Saves the file content to self.config_content and returns the site_url.
         """
         possible_files = ["./mkdocs.yml", "./properdocs.yml"]
+        
+        # 1. Define a dummy function that safely ignores the complex tag content
+        def ignore_unknown_tags(loader, tag_suffix, node):
+            return None  # Or return node.value if you want the string
 
+        # 2. Bind it to PyYAML's SafeLoader as a multi-tag catch-all        
+        yaml.SafeLoader.add_multi_constructor('tag:yaml.org,2002:python/', ignore_unknown_tags)
+        
         for file_name in possible_files:
             config_path = Path(file_name)
 
@@ -43,10 +51,12 @@ class GIFT_Exporter:
 
                     # Parse out the site_url safely
                     config_data = yaml.safe_load(content)
+
                     if isinstance(config_data, dict):
                         return config_data.get("site_url", "")
-                except Exception:
+                except Exception as e:
                     # If file is locked or corrupt, keep checking other files
+                    print(f"❌ Error reading/parsing {file_name}:", e)
                     continue
         return ""
 
