@@ -234,4 +234,4 @@ class GIFT_Exporter:
                 gift_string = self._generate_single_choice_item(q)
             items.append(gift_string)
 
-        return "\n\n".join(items)
+        return "\n\n".join(items)+"\n\n"
