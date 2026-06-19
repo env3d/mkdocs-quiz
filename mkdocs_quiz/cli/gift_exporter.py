@@ -122,8 +122,8 @@ class GIFT_Exporter:
                         code_tag.append(soup.new_tag("br"))
                     code_tag.append(line)
 
-        # Render soup back to string
-        html = str(soup)
+        # Render soup back to string and escape these special characters for GIFT format ~ = # { }
+        html = str(soup).replace("~", "\\~").replace("=", "\\=").replace("#", "\\#").replace("{", "\\{").replace("}", "\\}")
 
         # Split and rejoin to strip hard line breaks and squish spaces safely
         single_line_html = " ".join(html.splitlines()).strip()
